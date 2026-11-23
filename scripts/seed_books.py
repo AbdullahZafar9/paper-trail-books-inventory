@@ -39,22 +39,31 @@ sample_books = [
     ("9780140449266", "The Odyssey", "Homer", "History", 16.50, 1996),
 ]
 
-for isbn, title, author, cat_name, price, year in sample_books:
-    book_res = supabase.table("books").upsert({
+# 1. Batch upsert all 20 books in a single request
+books_payload = [
+    {
         "isbn": isbn,
         "title": title,
         "author": author,
         "category_id": cat_map[cat_name],
         "price": price,
-        "published_year": year
-    }, on_conflict="isbn").execute()
-    
-    book_id = book_res.data[0]["id"]
-    supabase.table("inventory").upsert({
-        "book_id": book_id,
+        "published_year": year,
+    }
+    for isbn, title, author, cat_name, price, year in sample_books
+]
+books_res = supabase.table("books").upsert(books_payload, on_conflict="isbn").execute()
+book_id_by_isbn = {b["isbn"]: b["id"] for b in books_res.data}
+
+# 2. Batch upsert all 20 inventory rows in a single request, matched via book_id
+inventory_payload = [
+    {
+        "book_id": book_id_by_isbn[isbn],
         "stock_quantity": random.randint(2, 35),
         "reorder_threshold": 5,
-        "shelf_location": f"Aisle-{random.randint(1, 6)}"
-    }, on_conflict="book_id").execute()
+        "shelf_location": f"Aisle-{random.randint(1, 6)}",
+    }
+    for isbn, *_ in sample_books
+]
+supabase.table("inventory").upsert(inventory_payload, on_conflict="book_id").execute()
 
-print("Successfully seeded 20 books and inventory records!")
+print("Successfully seeded 20 books and inventory records in 2 batched requests!")
