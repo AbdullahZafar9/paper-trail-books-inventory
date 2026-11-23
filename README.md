@@ -70,6 +70,7 @@ paper-trail-books-inventory/
 * **Low-Stock Indexing:** Added a partial index (`idx_inventory_low_stock`) on `stock_quantity <= 5` to accelerate low-stock alert queries.
 * **Row-Level Security (RLS):** Enabled RLS across all public tables. Unauthenticated (`anon`) users have **zero read or write permissions** (`42501` permission denied on both `SELECT` and `INSERT`), while all `INSERT`, `UPDATE`, and `DELETE` operations validate `auth.uid()` against `staff_profiles` via a `SECURITY DEFINER` function (`is_authenticated_staff()`) with `SET search_path = public` pinned to prevent search-path shadowing.
 
+* **Staff Provisioning Security:** Intentionally omitted an `INSERT` policy on `staff_profiles` so authenticated users cannot self-promote to staff roles; new staff records can only be provisioned via the privileged `service_role` key.
 
 ---
 
