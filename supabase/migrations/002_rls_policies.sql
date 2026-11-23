@@ -8,6 +8,7 @@ ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
 CREATE OR REPLACE FUNCTION public.is_authenticated_staff()
 RETURNS BOOLEAN
 LANGUAGE plpgsql
+STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
