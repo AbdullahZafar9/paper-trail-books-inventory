@@ -13,8 +13,9 @@ categories = [
     {"name": "Science", "description": "Physics, biology, and popular science"},
 ]
 
-cat_res = supabase.table("categories").upsert(categories, on_conflict="name").execute()
-cat_map = {c["name"]: c["id"] for c in cat_res.data}
+supabase.table("categories").upsert(categories, on_conflict="name", ignore_duplicates=True).execute()
+all_cats = supabase.table("categories").select("id, name").execute().data
+cat_map = {c["name"]: c["id"] for c in all_cats}
 
 sample_books = [
     ("9780140449136", "Crime and Punishment", "Fyodor Dostoevsky", "Fiction", 14.99, 1866),
@@ -39,7 +40,6 @@ sample_books = [
     ("9780140449266", "The Odyssey", "Homer", "History", 16.50, 1996),
 ]
 
-# 1. Batch upsert all 20 books in a single request
 books_payload = [
     {
         "isbn": isbn,
@@ -51,10 +51,10 @@ books_payload = [
     }
     for isbn, title, author, cat_name, price, year in sample_books
 ]
-books_res = supabase.table("books").upsert(books_payload, on_conflict="isbn").execute()
-book_id_by_isbn = {b["isbn"]: b["id"] for b in books_res.data}
+supabase.table("books").upsert(books_payload, on_conflict="isbn", ignore_duplicates=True).execute()
+all_books = supabase.table("books").select("id, isbn").execute().data
+book_id_by_isbn = {b["isbn"]: b["id"] for b in all_books}
 
-# 2. Batch upsert all 20 inventory rows in a single request, matched via book_id
 inventory_payload = [
     {
         "book_id": book_id_by_isbn[isbn],
@@ -64,6 +64,6 @@ inventory_payload = [
     }
     for isbn, *_ in sample_books
 ]
-supabase.table("inventory").upsert(inventory_payload, on_conflict="book_id").execute()
+supabase.table("inventory").upsert(inventory_payload, on_conflict="book_id", ignore_duplicates=True).execute()
 
-print("Successfully seeded 20 books and inventory records in 2 batched requests!")
+print("Successfully seeded 20 books and inventory records idempotently!")
