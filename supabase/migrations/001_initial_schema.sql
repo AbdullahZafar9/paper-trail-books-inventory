@@ -40,3 +40,9 @@ CREATE TABLE public.inventory (
 -- Indexes for fast lookups
 CREATE INDEX idx_books_category ON public.books(category_id);
 CREATE INDEX idx_inventory_low_stock ON public.inventory(stock_quantity) WHERE stock_quantity <= 5;
+
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
+
