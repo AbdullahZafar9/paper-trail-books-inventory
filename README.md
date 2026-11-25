@@ -84,18 +84,173 @@ paper-trail-books-inventory/
    python scripts/seed_books.py
    python scripts/test_rls.py
    ```
+
+---
+
 ## REST API Endpoints (Next.js App Router)
 
-All endpoints require an authenticated staff JWT (`Authorization: Bearer <token>`) and enforce PostgreSQL Row-Level Security (`is_authenticated_staff()`) alongside Zod request validation.
+All endpoints require an authenticated Supabase staff JWT in the `Authorization` header (`Authorization: Bearer <token>`) and enforce PostgreSQL Row-Level Security (`is_authenticated_staff()`) alongside Zod request validation.
 
-| Method | Endpoint | Description | Request Body / Query Params | Status Codes |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/books` | List books joined with categories and inventory | `?category_id=<uuid>`, `?search=<term>` | `200`, `400`, `403` |
-| `POST` | `/api/books` | Create a new book and initial inventory record | `{ isbn, title, author, category_id, price, published_year?, stock_quantity?, reorder_threshold?, shelf_location? }` | `201`, `400`, `401`, `403`, `409` |
-| `PATCH` | `/api/books/[id]/inventory` | Update stock quantity, threshold, or shelf location (returns `low_stock_alert: true` when `stock_quantity <= reorder_threshold`) | `{ stock_quantity?, reorder_threshold?, shelf_location? }` | `200`, `400`, `401`, `403` |
-| `DELETE` | `/api/books/[id]/inventory` | Delete a book and its linked inventory record | Path param `id` (book UUID) | `200`, `400`, `401`, `403` |
-| `GET` | `/api/inventory/low-stock` | Fetch books with stock at or below threshold (`<= 5`) | None | `200`, `400`, `403` |
+---
 
-### Error Handling & Validation
-- **Zod Schema Validation (`src/lib/validations/inventory.ts`):** Rejects negative prices/stock counts, malformed UUIDs, and invalid ISBNs with HTTP `400 Bad Request` and structured field errors.
-- **Authentication & RLS Enforcement:** Missing or invalid Bearer tokens return `401 Unauthorized`, while non-staff accounts trigger PostgreSQL `42501` policy rejections mapped to `403 Forbidden`.
+### 1. `/api/books` (`GET`, `POST`)
+
+Lists books joined with category and inventory details (with optional filtering/pagination), or creates a new book alongside its 1-to-1 `inventory` record.
+
+* **Query Parameters (`GET`):** `?page=1&limit=8&category_id=<uuid>&search=<term>`
+* **Request Body (`POST`):**
+  ```json
+  {
+    "isbn": "9780140449136",
+    "title": "Crime and Punishment",
+    "author": "Fyodor Dostoevsky",
+    "category_id": "f28a41de-a752-47f3-a454-46f6383db550",
+    "price": 18.99,
+    "published_year": 1866,
+    "stock_quantity": 3,
+    "reorder_threshold": 5,
+    "shelf_location": "A-12"
+  }
+  ```
+* **Responses:**
+  * **`200 OK` (`GET`) / `201 Created` (`POST`):**
+    ```json
+    {
+      "data": {
+        "id": "7d35ee70-f21b-4ff4-ad28-a5fd3708b77a",
+        "isbn": "9780140449136",
+        "title": "Crime and Punishment",
+        "author": "Fyodor Dostoevsky",
+        "category_id": "f28a41de-a752-47f3-a454-46f6383db550",
+        "price": 18.99,
+        "published_year": 1866,
+        "inventory": {
+          "stock_quantity": 3,
+          "reorder_threshold": 5,
+          "shelf_location": "A-12"
+        }
+      }
+    }
+    ```
+  * **`400 Bad Request` (Zod validation failure):**
+    ```json
+    {
+      "error": "Validation failed",
+      "details": {
+        "fieldErrors": {
+          "price": ["Price cannot be negative"]
+        }
+      }
+    }
+    ```
+  * **`401 Unauthorized` (Missing or invalid Bearer token):**
+    ```json
+    {
+      "error": "Unauthorized: valid staff token required"
+    }
+    ```
+  * **`404 Not Found` (Referenced `category_id` or resource not found / invalid route):**
+    ```json
+    {
+      "error": "Resource not found"
+    }
+    ```
+
+---
+
+### 2. `/api/books/[id]/inventory` (`PATCH`, `DELETE`)
+
+Updates stock quantity, reorder threshold, or shelf location for a specific book (returning `low_stock_alert: true` when `stock_quantity <= reorder_threshold`), or deletes the book and its linked inventory record.
+
+* **Path Parameter:** `id` — Book UUID (`uuid`)
+* **Request Body (`PATCH`):**
+  ```json
+  {
+    "stock_quantity": 4,
+    "reorder_threshold": 5,
+    "shelf_location": "B-08"
+  }
+  ```
+* **Request Body (`DELETE`):** None
+* **Responses:**
+  * **`200 OK` (`PATCH`):**
+    ```json
+    {
+      "data": {
+        "id": "41a62e54-9103-4765-aa0b-87b7647a311d",
+        "book_id": "7d35ee70-f21b-4ff4-ad28-a5fd3708b77a",
+        "stock_quantity": 4,
+        "reorder_threshold": 5,
+        "shelf_location": "B-08",
+        "updated_by": "bf49930f-743f-4d3c-8f19-1060ec4b2bbc",
+        "updated_at": "2026-11-25T16:13:23.947+00:00"
+      },
+      "low_stock_alert": true
+    }
+    ```
+  * **`400 Bad Request` (Invalid UUID format or negative stock count):**
+    ```json
+    {
+      "error": "Invalid book ID format (UUID expected)"
+    }
+    ```
+  * **`401 Unauthorized` (Missing or invalid Bearer token):**
+    ```json
+    {
+      "error": "Unauthorized: valid staff token required"
+    }
+    ```
+  * **`404 Not Found` (Valid UUID with no matching inventory or book row):**
+    ```json
+    {
+      "error": "Inventory record not found for this book"
+    }
+    ```
+
+---
+
+### 3. `/api/inventory/low-stock` (`GET`)
+
+Fetches all books whose `stock_quantity` is at or below the low-stock threshold (`<= 5`), backed by the partial index `idx_inventory_low_stock`.
+
+* **Request Body:** None
+* **Responses:**
+  * **`200 OK`:**
+    ```json
+    {
+      "data": [
+        {
+          "id": "41a62e54-9103-4765-aa0b-87b7647a311d",
+          "stock_quantity": 4,
+          "reorder_threshold": 5,
+          "shelf_location": "B-08",
+          "updated_at": "2026-11-25T16:13:23.947+00:00",
+          "books": {
+            "id": "7d35ee70-f21b-4ff4-ad28-a5fd3708b77a",
+            "isbn": "9780140449136",
+            "title": "Crime and Punishment",
+            "author": "Fyodor Dostoevsky",
+            "price": 18.99
+          }
+        }
+      ]
+    }
+    ```
+  * **`400 Bad Request` (Invalid query parameters):**
+    ```json
+    {
+      "error": "Invalid request parameters"
+    }
+    ```
+  * **`401 Unauthorized` (Missing or invalid Bearer token):**
+    ```json
+    {
+      "error": "Unauthorized: valid staff token required"
+    }
+    ```
+  * **`404 Not Found` (Endpoint or resource not found):**
+    ```json
+    {
+      "error": "Resource not found"
+    }
+    ```
