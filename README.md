@@ -84,3 +84,18 @@ paper-trail-books-inventory/
    python scripts/seed_books.py
    python scripts/test_rls.py
    ```
+## REST API Endpoints (Next.js App Router)
+
+All endpoints require an authenticated staff JWT (`Authorization: Bearer <token>`) and enforce PostgreSQL Row-Level Security (`is_authenticated_staff()`) alongside Zod request validation.
+
+| Method | Endpoint | Description | Request Body / Query Params | Status Codes |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/api/books` | List books joined with categories and inventory | `?category_id=<uuid>`, `?search=<term>` | `200`, `400`, `403` |
+| `POST` | `/api/books` | Create a new book and initial inventory record | `{ isbn, title, author, category_id, price, published_year?, stock_quantity?, reorder_threshold?, shelf_location? }` | `201`, `400`, `401`, `403`, `409` |
+| `PATCH` | `/api/books/[id]/inventory` | Update stock quantity, threshold, or shelf location (returns `low_stock_alert: true` when `stock_quantity <= reorder_threshold`) | `{ stock_quantity?, reorder_threshold?, shelf_location? }` | `200`, `400`, `401`, `403` |
+| `DELETE` | `/api/books/[id]/inventory` | Delete a book and its linked inventory record | Path param `id` (book UUID) | `200`, `400`, `401`, `403` |
+| `GET` | `/api/inventory/low-stock` | Fetch books with stock at or below threshold (`<= 5`) | None | `200`, `400`, `403` |
+
+### Error Handling & Validation
+- **Zod Schema Validation (`src/lib/validations/inventory.ts`):** Rejects negative prices/stock counts, malformed UUIDs, and invalid ISBNs with HTTP `400 Bad Request` and structured field errors.
+- **Authentication & RLS Enforcement:** Missing or invalid Bearer tokens return `401 Unauthorized`, while non-staff accounts trigger PostgreSQL `42501` policy rejections mapped to `403 Forbidden`.
