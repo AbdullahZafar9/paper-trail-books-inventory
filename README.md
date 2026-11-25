@@ -57,7 +57,7 @@ paper-trail-books-inventory/
 │   │       │           └── route.ts         # PATCH (update stock & low-stock flag) & DELETE
 │   │       └── inventory/
 │   │           └── low-stock/
-│   │               └── route.ts             # GET low-stock alerts (stock_quantity <= 5)
+│   │               └── route.ts             # GET low-stock alerts (is_low_stock = true)
 │   └── lib/
 │       ├── supabase/
 │       │   └── server.ts                    # Request-scoped Supabase client forwarding Bearer JWTs
@@ -82,7 +82,7 @@ paper-trail-books-inventory/
 
 * **Normalized Relational Schema:** Separated static catalog metadata (`books`) from mutable stock counts (`inventory`) using a 1-to-1 foreign key relationship (`book_id`) to prevent row-locking contention during frequent inventory updates.
 * **Data Integrity Constraints:** Enforced `CHECK` constraints for non-negative prices (`price >= 0`), non-negative stock (`stock_quantity >= 0`), valid publication years, and strict role validation (`admin`, `manager`, `staff`).
-* **Low-Stock Indexing:** Added a partial index (`idx_inventory_low_stock`) on `stock_quantity <= 5` to accelerate low-stock alert queries.
+* **Low-Stock Indexing:** Added a partial index (`idx_inventory_low_stock`) on `is_low_stock = true` (stored generated column `stock_quantity <= reorder_threshold`) to accelerate low-stock alert queries.
 * **Row-Level Security (RLS):** Enabled RLS across all public tables. Unauthenticated (`anon`) users have **zero read or write permissions** (`42501` permission denied on both `SELECT` and `INSERT`), while all `INSERT`, `UPDATE`, and `DELETE` operations validate `auth.uid()` against `staff_profiles` via a `SECURITY DEFINER` function (`is_authenticated_staff()`) with `SET search_path = public` pinned to prevent search-path shadowing.
 
 * **Staff Provisioning Security:** Intentionally omitted an `INSERT` policy on `staff_profiles` so authenticated users cannot self-promote to staff roles; new staff records can only be provisioned via the privileged `service_role` key.
