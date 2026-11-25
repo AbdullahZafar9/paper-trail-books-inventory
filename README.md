@@ -46,33 +46,40 @@ erDiagram
 
 ```
 
+## Repository Structure
+
+```text
 paper-trail-books-inventory/
 ├── src/
 │   ├── app/
 │   │   └── api/
 │   │       ├── books/
-│   │       │   ├── route.ts                 # GET (list/filter books) & POST (create book + inventory)
+│   │       │   ├── route.ts                     # GET (list/filter books) & POST (atomic RPC book + inventory)
 │   │       │   └── [id]/
 │   │       │       └── inventory/
-│   │       │           └── route.ts         # PATCH (update stock & low-stock flag) & DELETE
+│   │       │           └── route.ts             # PATCH (update stock & low-stock flag) & DELETE
 │   │       └── inventory/
 │   │           └── low-stock/
-│   │               └── route.ts             # GET low-stock alerts (is_low_stock = true)
+│   │               └── route.ts                 # GET low-stock alerts (is_low_stock = true)
 │   └── lib/
 │       ├── supabase/
-│       │   └── server.ts                    # Request-scoped Supabase client forwarding Bearer JWTs
+│       │   └── server.ts                        # Request-scoped Supabase client forwarding Bearer JWTs
 │       └── validations/
-│           └── inventory.ts                 # Zod schemas for book creation and inventory updates
+│           └── inventory.ts                     # Zod schemas for book creation and inventory updates
 ├── supabase/
 │   └── migrations/
-│       ├── 001_initial_schema.sql           # Tables, foreign keys, constraints, indexes, and role grants
-│       └── 002_rls_policies.sql             # Row-Level Security policies and staff verification helper
+│       ├── 001_initial_schema.sql               # Tables, foreign keys, constraints, indexes, and role grants
+│       ├── 002_rls_policies.sql                 # Row-Level Security policies and staff verification helper
+│       ├── 003_low_stock_generated_col.sql      # Stored generated column (is_low_stock) and partial index
+│       └── 004_create_book_with_inventory_rpc.sql # Atomic SECURITY INVOKER RPC for book + inventory creation
 ├── scripts/
-│   ├── seed_books.py                        # Python script to seed 4 categories and 20 sample books
-│   └── test_rls.py                          # RLS verification script (anon, non-staff, and staff paths)
-├── .gitignore                               # Excludes .env, .env.local, and local cache files
-├── package.json                             # Next.js, TypeScript, Zod, and Supabase dependencies
-└── README.md                                # Schema ERD, architectural decisions, and API docs
+│   ├── seed_books.py                            # Python script to seed 4 categories and 20 sample books
+│   └── test_rls.py                              # RLS verification script (anon, non-staff, and staff paths)
+├── .gitignore                                   # Excludes .env, .env.local, and local cache files
+├── package.json                                 # Next.js, TypeScript, Zod, and Supabase dependencies
+└── README.md                                    # Schema ERD, architectural decisions, and API docs
+```
+
 
 ```
 
