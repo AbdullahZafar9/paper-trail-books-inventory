@@ -6,11 +6,16 @@ export async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient(req);
   const { searchParams } = new URL(req.url);
   const categoryId = searchParams.get('category_id');
-  const search = searchParams.get('search');
+  const search = searchParams.get('search')?.trim();
+  const page = Math.max(1, Number(searchParams.get('page') || '1'));
+  const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || '8')));
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
 
   let query = supabase
     .from('books')
-    .select(`
+    .select(
+      `
       id,
       isbn,
       title,
@@ -19,9 +24,12 @@ export async function GET(req: NextRequest) {
       published_year,
       created_at,
       categories ( id, name ),
-      inventory ( id, stock_quantity, reorder_threshold, shelf_location, updated_at )
-    `)
-    .order('created_at', { ascending: false });
+      inventory ( id, stock_quantity, reorder_threshold, is_low_stock, shelf_location, updated_at )
+    `,
+      { count: 'exact' }
+    )
+    .order('created_at', { ascending: false })
+    .range(from, to);
 
   if (categoryId) {
     query = query.eq('category_id', categoryId);
@@ -31,14 +39,27 @@ export async function GET(req: NextRequest) {
     query = query.or(`title.ilike.%${search}%,author.ilike.%${search}%,isbn.ilike.%${search}%`);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
 
   if (error) {
     const status = error.code === '42501' ? 403 : 400;
     return NextResponse.json({ error: error.message }, { status });
   }
 
-  return NextResponse.json({ data }, { status: 200 });
+  const total = count ?? 0;
+
+  return NextResponse.json(
+    {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    },
+    { status: 200 }
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -63,34 +84,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { stock_quantity, reorder_threshold, shelf_location, ...bookFields } = parsed.data;
+  const { data, error } = await supabase.rpc('create_book_with_inventory', {
+    p_isbn: parsed.data.isbn,
+    p_title: parsed.data.title,
+    p_author: parsed.data.author,
+    p_category_id: parsed.data.category_id,
+    p_price: parsed.data.price,
+    p_published_year: parsed.data.published_year ?? null,
+    p_stock_quantity: parsed.data.stock_quantity,
+    p_reorder_threshold: parsed.data.reorder_threshold,
+    p_shelf_location: parsed.data.shelf_location ?? null,
+  });
 
-  const { data: book, error: bookError } = await supabase
-    .from('books')
-    .insert(bookFields)
-    .select()
-    .single();
-
-  if (bookError) {
-    const status = bookError.code === '42501' ? 403 : bookError.code === '23505' ? 409 : 400;
-    return NextResponse.json({ error: bookError.message }, { status });
+  if (error) {
+    const status = error.code === '42501' ? 403 : error.code === '23505' ? 409 : 400;
+    return NextResponse.json({ error: error.message }, { status });
   }
 
-  const { data: inventory, error: invError } = await supabase
-    .from('inventory')
-    .insert({
-      book_id: book.id,
-      stock_quantity,
-      reorder_threshold,
-      shelf_location: shelf_location ?? null,
-      updated_by: user.id,
-    })
-    .select()
-    .single();
-
-  if (invError) {
-    return NextResponse.json({ error: invError.message }, { status: 400 });
-  }
-
-  return NextResponse.json({ data: { ...book, inventory } }, { status: 201 });
+  return NextResponse.json({ data }, { status: 201 });
 }
