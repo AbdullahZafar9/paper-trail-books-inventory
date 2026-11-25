@@ -44,7 +44,7 @@ erDiagram
     }
 ```
 
----
+```
 
 paper-trail-books-inventory/
 ├── src/
