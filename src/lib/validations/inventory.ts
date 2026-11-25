@@ -12,8 +12,16 @@ export const createBookSchema = z.object({
   shelf_location: z.string().max(50).optional().nullable(),
 });
 
-export const updateInventorySchema = z.object({
-  stock_quantity: z.number().int().nonnegative('Stock cannot be negative').optional(),
-  reorder_threshold: z.number().int().nonnegative().optional(),
-  shelf_location: z.string().max(50).optional().nullable(),
-});
+export const updateInventorySchema = z
+  .object({
+    stock_quantity: z.number().int().nonnegative('Stock cannot be negative').optional(),
+    reorder_threshold: z.number().int().nonnegative().optional(),
+    shelf_location: z.string().max(50).optional().nullable(),
+  })
+  .refine(
+    (data) =>
+      data.stock_quantity !== undefined ||
+      data.reorder_threshold !== undefined ||
+      data.shelf_location !== undefined,
+    { message: 'At least one field (stock_quantity, reorder_threshold, or shelf_location) must be provided' }
+  );

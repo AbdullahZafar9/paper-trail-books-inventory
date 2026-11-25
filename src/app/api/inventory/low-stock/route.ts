@@ -14,7 +14,6 @@ export async function GET(req: NextRequest) {
       updated_at,
       books ( id, isbn, title, author, price )
     `)
-    .lte('stock_quantity', 5)
     .order('stock_quantity', { ascending: true });
 
   if (error) {
@@ -22,5 +21,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status });
   }
 
-  return NextResponse.json({ data }, { status: 200 });
+  const lowStockItems = (data ?? []).filter(
+    (item) => item.stock_quantity <= item.reorder_threshold
+  );
+
+  return NextResponse.json({ data: lowStockItems }, { status: 200 });
 }
