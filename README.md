@@ -44,10 +44,10 @@ erDiagram
     }
 ```
 
-```
 
 ## Repository Structure
 
+```
 paper-trail-books-inventory/
 ├── src/
 │   ├── app/
@@ -80,7 +80,7 @@ paper-trail-books-inventory/
 ```
 
 
-```
+
 
 ---
 
