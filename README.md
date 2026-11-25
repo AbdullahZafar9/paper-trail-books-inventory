@@ -48,7 +48,6 @@ erDiagram
 
 ## Repository Structure
 
-```text
 paper-trail-books-inventory/
 ├── src/
 │   ├── app/
