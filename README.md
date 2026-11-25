@@ -46,19 +46,34 @@ erDiagram
 
 ---
 
-## Repository Structure
-
-```text
 paper-trail-books-inventory/
+├── src/
+│   ├── app/
+│   │   └── api/
+│   │       ├── books/
+│   │       │   ├── route.ts                 # GET (list/filter books) & POST (create book + inventory)
+│   │       │   └── [id]/
+│   │       │       └── inventory/
+│   │       │           └── route.ts         # PATCH (update stock & low-stock flag) & DELETE
+│   │       └── inventory/
+│   │           └── low-stock/
+│   │               └── route.ts             # GET low-stock alerts (stock_quantity <= 5)
+│   └── lib/
+│       ├── supabase/
+│       │   └── server.ts                    # Request-scoped Supabase client forwarding Bearer JWTs
+│       └── validations/
+│           └── inventory.ts                 # Zod schemas for book creation and inventory updates
 ├── supabase/
 │   └── migrations/
-│       ├── 001_initial_schema.sql   # Tables, foreign keys, constraints, indexes, and role grants
-│       └── 002_rls_policies.sql     # Row-Level Security policies and staff verification helper
+│       ├── 001_initial_schema.sql           # Tables, foreign keys, constraints, indexes, and role grants
+│       └── 002_rls_policies.sql             # Row-Level Security policies and staff verification helper
 ├── scripts/
-│   ├── seed_books.py                # Python script to seed 4 categories and 20 sample books
-│   └── test_rls.py                  # RLS verification script (anon, non-staff, and staff paths)
-├── .gitignore                       # Excludes .env and local cache files
-└── README.md                        # Schema ERD and architectural decisions
+│   ├── seed_books.py                        # Python script to seed 4 categories and 20 sample books
+│   └── test_rls.py                          # RLS verification script (anon, non-staff, and staff paths)
+├── .gitignore                               # Excludes .env, .env.local, and local cache files
+├── package.json                             # Next.js, TypeScript, Zod, and Supabase dependencies
+└── README.md                                # Schema ERD, architectural decisions, and API docs
+
 ```
 
 ---
